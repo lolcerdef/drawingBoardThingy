@@ -136,4 +136,9 @@ function helpers.eraseFromStroke(stroke, cx, cy, radius)
 	return result
 end
 
+function helpers.play(snd, vol)
+	snd:setVolume(vol)
+	snd:play()
+end
+
 return helpers

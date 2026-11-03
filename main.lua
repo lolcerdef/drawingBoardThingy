@@ -2,6 +2,7 @@ utf8 = require "utf8"
 enet = require 'enet'
 
 function love.load()
+	love.keyboard.setKeyRepeat(true)
 	love.graphics.setLineJoin('bevel')
 	love.graphics.setLineStyle('smooth')
 	love.graphics.setDefaultFilter( 'nearest', 'nearest' )
@@ -10,15 +11,19 @@ function love.load()
 	love.graphics.setFont(fonts.main)
 	
 	sprites = require 'preload.sprites'
+	sounds = require 'preload.sounds'
 	
 	helpers = require 'lib.helpers'
 	ui = require 'lib.ui'
 	
 	cursors = {
-		brush = love.mouse.newCursor( love.image.newImageData("assets/sprites/tools/brush.png"), 4, 26 ),
-		erase = love.mouse.newCursor( love.image.newImageData("assets/sprites/tools/eraser.png"), 4, 26 ),
+		brush = love.mouse.newCursor( love.image.newImageData("assets/sprites/icons/brush.png"), 4, 26 ),
+		erase = love.mouse.newCursor( love.image.newImageData("assets/sprites/icons/eraser.png"), 4, 26 ),
+		cursor = love.mouse.newCursor( love.image.newImageData("assets/sprites/icons/cursor.png"), 1, 1 ),
 	}
 	love.mouse.setCursor(cursors.brush)
+	multiplayerDialog = false
+	mpDialogTab = 0
 	
 	mouse = {
 		lb = false,
@@ -50,6 +55,9 @@ function love.load()
 	
 	]]
 	
+	port = 8888
+	joinAddress = 'localhost'
+	code = ''
 end
 
 function resetTool()
@@ -84,61 +92,60 @@ function love.update(dt)
 	mouse.wx, mouse.wy = mouse.x - pan.x, mouse.y - pan.y
 	
 	if not ui.hasMouse then
-	
-	if tool == 'brush' then
-		if mouse.lb then
-			if startDrag then
-				if (mouse.wx ~= toolBuffer[#toolBuffer-1]) or (mouse.wy ~= toolBuffer[#toolBuffer]) then
-					table.insert(toolBuffer, mouse.wx)
-					table.insert(toolBuffer, mouse.wy)
+		
+		if tool == 'brush' then
+			if mouse.lb then
+				if startDrag then
+					if (mouse.wx ~= toolBuffer[#toolBuffer-1]) or (mouse.wy ~= toolBuffer[#toolBuffer]) then
+						table.insert(toolBuffer, mouse.wx)
+						table.insert(toolBuffer, mouse.wy)
+					end
+				else
+					startDrag = startDrag or {}
+					tempVisual = { type = 'line', width = size, points = toolBuffer, color = color }
+					table.insert(layers[layer], tempVisual)
 				end
+			end
+			
+			if startDrag and not mouse.lb then
+				table.insert(layers[layer], { 
+					type = 'line', width = size,
+					points = helpers.copyTable(toolBuffer),
+					color = helpers.copyTable(color)
+				})
+				resetTool()
+				for i, v in ipairs(layers[layer]) do
+					if v == tempVisual then
+						table.remove(layers[layer], i)
+					end
+				end
+			end
+		elseif tool == 'erase' then
+			if mouse.lb then
+				local lx, ly = lastErase.x or mouse.wx, lastErase.y or mouse.wy
+				local dist = math.sqrt((mouse.wx - lx)^2 + (mouse.wy - ly)^2)
+				local steps = math.max(1, math.ceil(dist / math.max (1, size / 4)))
+				for k = 1, steps do
+					local t = k / steps
+					eraseAt(lx + (mouse.wx - lx) * t, ly + (mouse.wy - ly) * t)
+				end
+				lastErase.x, lastErase.y = mouse.wx, mouse.wy
 			else
-				startDrag = startDrag or {}
-				tempVisual = { type = 'line', width = size, points = toolBuffer, color = color }
-				table.insert(layers[layer], tempVisual)
+				lastErase.x, lastErase.y = nil, nil
 			end
 		end
 		
-		if startDrag and not mouse.lb then
-			table.insert(layers[layer], { 
-				type = 'line', width = size,
-				points = helpers.copyTable(toolBuffer),
-				color = helpers.copyTable(color)
-			})
-			resetTool()
-			for i, v in ipairs(layers[layer]) do
-				if v == tempVisual then
-					table.remove(layers[layer], i)
-				end
+		if mouse.mb then
+			if pan.sx and pan.sy then
+				pan.x = mouse.x - pan.sx 
+				pan.y = mouse.y - pan.sy
+			else
+				pan.sx = mouse.wx
+				pan.sy = mouse.wy
 			end
+		elseif pan.sx and pan.sy then
+			pan.sx, pan.sy = nil, nil
 		end
-	elseif tool == 'erase' then
-		if mouse.lb then
-			local lx, ly = lastErase.x or mouse.wx, lastErase.y or mouse.wy
-			local dist = math.sqrt((mouse.wx - lx)^2 + (mouse.wy - ly)^2)
-			local steps = math.max(1, math.ceil(dist / math.max (1, size / 4)))
-			for k = 1, steps do
-				local t = k / steps
-				eraseAt(lx + (mouse.wx - lx) * t, ly + (mouse.wy - ly) * t)
-			end
-			lastErase.x, lastErase.y = mouse.wx, mouse.wy
-		else
-			lastErase.x, lastErase.y = nil, nil
-		end
-	end
-	
-	if mouse.mb then
-		if pan.sx and pan.sy then
-			pan.x = mouse.x - pan.sx 
-			pan.y = mouse.y - pan.sy
-		else
-			pan.sx = mouse.wx
-			pan.sy = mouse.wy
-		end
-	elseif pan.sx and pan.sy then
-		pan.sx, pan.sy = nil, nil
-	end
-	
 	end
 	
 	mouse.sc = 0
@@ -170,7 +177,21 @@ function love.wheelmoved(x, y)
 end
 
 function love.textinput(text)
+	ui.handleText(text)
+end
+
+function love.keypressed(key)
+	local ctrlKey = 'ctrl'
+	if love.system.getOS() == 'OS X' then
+		ctrlKey = 'gui' -- apparently this is what mac uses
+	end
+	if love.keyboard.isDown('l'..ctrlKey) or love.keyboard.isDown('r'..ctrlKey) then
+		if key == 'v' then
+			ui.handleText(love.system.getClipboardText())
+		end
+	end
 	
+	ui.handleKey(key)
 end
 
 function love.draw()
@@ -205,6 +226,7 @@ function love.draw()
 	love.graphics.setColor(1,1,1,1)
 	ui.hasMouse = false
 	
+	ui.canInput = not multiplayerDialog
 	ui.drawbox(60, 628, 15, 2)
 	local toolButtonPressed = false
 	toolButtonPressed = ui.button(82, 646, nil, sprites.tools.brush, tool == 'brush' and color, function() tool = 'brush' end) or toolButtonPressed
@@ -219,16 +241,68 @@ function love.draw()
 	end
 	love.graphics.setColor(0,0,0,1)
 	love.graphics.printf('Layer: ' .. layer, 902, 646, 248, 'center')
-	ui.button(962, 666, {0,0,0,0}, sprites.ui.buttonLeft, {1,1,1,1}, function() 
+	ui.button(962, 666, {0,0,0,0}, sprites.icons.left, nil, function() 
 		if (layer - 1) < 1 then return end
 		layer = layer - 1
 	end)
-	ui.button(1022, 666, {0,0,0,0}, sprites.ui.buttonRight, {1,1,1,1}, function() 
+	ui.button(1022, 666, {0,0,0,0}, sprites.icons.right, nil, function() 
 		if not layers[layer + 1] then
 			layers[layer + 1] = {}
 		end
 		layer = layer + 1
 	end)
+	ui.canInput = true
 	
+	if multiplayerDialog then
+		ui.drawbox(-72,-72, 18, 12, {0,0,0,0.3})
+		ui.drawbox(96,72, 14, 8)
+		ui.button(8, 88, nil, sprites.icons.host, nil, function() mpDialogTab = 0 end)
+		ui.button(8, 168, nil, sprites.icons.join, nil, function() mpDialogTab = 1 end)
+		
+		love.graphics.setFont(fonts.title)
+		love.graphics.setColor(0,0,0)
+		if mpDialogTab == 0 then
+			love.graphics.print('Host', 116, 86, 0, 1.5, 1.5)
+			love.graphics.setFont(fonts.main)
+			love.graphics.print('Port', 116, 162, 0, 1, 1)
+			port = ui.textBox(tostring(port), 206, 157, 300, 34)
+			if tonumber(port) then
+				port = tonumber(port)
+			end
+			
+			love.graphics.print('Code', 116, 212, 0, 1, 1)
+			code = ui.textBox(code, 206, 206, 300, 34)
+		elseif mpDialogTab == 1 then
+			love.graphics.print('Join', 116, 86, 0, 1.5, 1.5)
+			love.graphics.setFont(fonts.main)
+			love.graphics.print('Address', 116, 162, 0, 1, 1)
+			joinAddress = ui.textBox(joinAddress, 265, 157, 241, 34)
+			
+			love.graphics.print('Port', 116, 212, 0, 1, 1)
+			port = ui.textBox(tostring(port), 265, 206, 241, 34, '%d')
+			if tonumber(port) then
+				port = tonumber(port)
+			end
+			
+			love.graphics.print('Code', 116, 262, 0, 1, 1)
+			code = ui.textBox(code, 265, 255, 241, 34)
+		end
+		
+		ui.button(116, 564, nil, sprites.icons.right, nil, function()
+			
+		end)
+	end
+	
+	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function() 
+		multiplayerDialog = not multiplayerDialog
+		if multiplayerDialog then
+			love.mouse.setCursor(cursors.cursor)
+		else
+			love.mouse.setCursor(cursors[tool])
+		end
+	end)
+	
+	ui.pendingText = ''
+	ui.pendingBackspaces = 0
 	mouse.pressed = false
 end
