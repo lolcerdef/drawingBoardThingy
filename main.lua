@@ -2,6 +2,9 @@ utf8 = require "utf8"
 enet = require 'enet'
 
 function love.load()
+	math.randomseed(os.time())
+	math.random()
+	
 	love.keyboard.setKeyRepeat(true)
 	love.graphics.setLineJoin('bevel')
 	love.graphics.setLineStyle('smooth')
@@ -58,6 +61,8 @@ function love.load()
 	port = 8888
 	joinAddress = 'localhost'
 	code = ''
+	name = 'Guest'
+	ranImg = nil
 end
 
 function resetTool()
@@ -265,10 +270,7 @@ function love.draw()
 			love.graphics.print('Host', 116, 86, 0, 1.5, 1.5)
 			love.graphics.setFont(fonts.main)
 			love.graphics.print('Port', 116, 162, 0, 1, 1)
-			port = ui.textBox(tostring(port), 206, 157, 300, 34)
-			if tonumber(port) then
-				port = tonumber(port)
-			end
+			port = tonumber(ui.textBox(tostring(port), 206, 157, 300, 34, '%d'))
 			
 			love.graphics.print('Code', 116, 212, 0, 1, 1)
 			code = ui.textBox(code, 206, 206, 300, 34)
@@ -279,29 +281,29 @@ function love.draw()
 			joinAddress = ui.textBox(joinAddress, 265, 157, 241, 34)
 			
 			love.graphics.print('Port', 116, 212, 0, 1, 1)
-			port = ui.textBox(tostring(port), 265, 206, 241, 34, '%d')
-			if tonumber(port) then
-				port = tonumber(port)
-			end
+			port = tonumber(ui.textBox(tostring(port), 265, 206, 241, 34, '%d'))
 			
 			love.graphics.print('Code', 116, 262, 0, 1, 1)
 			code = ui.textBox(code, 265, 255, 241, 34)
 		end
 		
+		love.graphics.print('Name', 116 + 80, 584, 0, 1, 1)
+		name = ui.textBox(name, 206 + 80, 578, 220, 34)
 		ui.button(116, 564, nil, sprites.icons.right, nil, function()
 			
 		end)
+		ui.button(564, 112, {0,0,0,0}, ranImg)
 	end
 	
 	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function() 
 		multiplayerDialog = not multiplayerDialog
 		if multiplayerDialog then
 			love.mouse.setCursor(cursors.cursor)
+			ranImg = sprites.random[math.random(1,5)]
 		else
 			love.mouse.setCursor(cursors[tool])
 		end
 	end)
-	
 	ui.pendingText = ''
 	ui.pendingBackspaces = 0
 	mouse.pressed = false

@@ -20,5 +20,9 @@ sprites.icons = {
 	copy = love.graphics.newImage('assets/sprites/icons/copy.png'),
 	paste = love.graphics.newImage('assets/sprites/icons/paste.png'),
 }
+sprites.random = {}
+for i = 0, 4 do
+	table.insert(sprites.random, love.graphics.newImage('assets/sprites/random/'..i..'.png'))
+end
 
 return sprites
