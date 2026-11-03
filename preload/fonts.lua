@@ -1,0 +1,6 @@
+local fonts = {}
+
+fonts.main = love.graphics.newFont("assets/fonts/main.ttf", 30)
+fonts.title = love.graphics.newFont("assets/fonts/title.ttf", 30)
+
+return fonts
