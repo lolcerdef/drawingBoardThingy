@@ -322,11 +322,14 @@ function love.draw()
 			
 			love.graphics.print('Code', 116, 262, 0, 1, 1)
 			code = ui.textBox(code, 265, 255, 241, 34)
+			love.graphics.printf('Joining will delete EVERYTHING here.', 116, 302, 310, 'left')
 		end
 		
+		if net.status ~= 'Offline' then
+		love.graphics.printf(net.status, 116, 440, 300, 'left')
+		end
 		love.graphics.print('Name', 116 + 80, 584, 0, 1, 1)
 		name = ui.textBox(name, 206 + 80, 578, 220, 34)
-		love.graphics.printf(net.status, 116, 440, 860, 'left')
 		if net.isActive() then
 			ui.button(116, 564, nil, sprites.icons.left, nil, function() net.stop() end)
 		else
@@ -334,6 +337,8 @@ function love.draw()
 				if mpDialogTab == 0 then
 					net.startHost(port,code,name)
 				else
+					layers = { {} }
+					layer = 1
 					net.join(joinAddress, port, code, name)
 				end
 			end)

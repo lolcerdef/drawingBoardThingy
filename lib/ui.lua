@@ -39,7 +39,9 @@ function ui.button(x, y, col, icon, icCol, func)
 	g.setColor(col)
 	g.draw(sprites.ui.buttonEmpty, x, y, 0, 2, 2)
 	g.setColor(icCol)
-	g.draw(icon, x, y, 0, 2, 2)
+	if icon then
+		g.draw(icon, x, y, 0, 2, 2)
+	end
 	
 	if hovered and mouse.pressed and ui.canInput then
 		helpers.play(sounds.click, math.random(10,20)/30)

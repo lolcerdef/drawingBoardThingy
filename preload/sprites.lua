@@ -19,6 +19,7 @@ sprites.icons = {
 	join = love.graphics.newImage('assets/sprites/icons/join.png'),
 	copy = love.graphics.newImage('assets/sprites/icons/copy.png'),
 	paste = love.graphics.newImage('assets/sprites/icons/paste.png'),
+	burger = love.graphics.newImage('assets/sprites/icons/burger.png'),
 }
 sprites.random = {}
 for i = 0, 4 do
