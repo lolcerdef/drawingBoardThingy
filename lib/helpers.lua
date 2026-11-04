@@ -45,7 +45,7 @@ function helpers.distToSeg(px, py, x1, y1, x2, y2)
 		t = ((px-x1) * dx + (py - y1) * dy) / lenSq
 		t = helpers.clamp(t, 0, 1)
 	end
-	local x, cy = x1 + t*dx, y1 + t*dy
+	local cx, cy = x1 + t*dx, y1 + t*dy
 	return math.sqrt((px-cx)^2 + (py-cy)^2)
 end
 

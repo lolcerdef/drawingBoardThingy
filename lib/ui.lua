@@ -42,7 +42,7 @@ function ui.button(x, y, col, icon, icCol, func)
 	g.draw(icon, x, y, 0, 2, 2)
 	
 	if hovered and mouse.pressed and ui.canInput then
-		helpers.play(sounds.click, math.random(10,20)/40)
+		helpers.play(sounds.click, math.random(10,20)/30)
 		if func then
 			func()
 		end
@@ -68,13 +68,13 @@ function ui.slider(val, min, max, x, y, r, w, l, handCol, col)
 		local dx, dy = mouse.x - hx, mouse.y - y
 		if dx * dx + dy * dy <= r * r then
 			ui.activeSlider = id
-			helpers.play(sounds.press, math.random(10,20)/40)
+			helpers.play(sounds.press, math.random(10,20)/30)
 		end
 	end
 	
 	if not mouse.lb and ui.activeSlider == id then
 		ui.activeSlider = nil
-		helpers.play(sounds.release, math.random(10,20)/40)
+		helpers.play(sounds.release, math.random(10,20)/30)
 	end
 	
 	if ui.activeSlider == id then
@@ -121,8 +121,10 @@ function ui.textBox(val, x, y, w, h, allowedChars)
 	if mouse.pressed and ui.canInput then
 		if hovered then
 			ui.activeTextBox = id
+			helpers.play(sounds.press, math.random(10,20)/30)
 		elseif ui.activeTextBox == id then
 			ui.activeTextBox = nil
+			helpers.play(sounds.release, math.random(10,20)/30)
 		end
 	end
 	

@@ -1,5 +1,12 @@
 utf8 = require "utf8"
-enet = require 'enet'
+
+--[[
+things to add:
+- see others cursor and color (plus name under cursor)
+- go to coordinate
+- zoom
+- export/import
+]]
 
 function love.load()
 	math.randomseed(os.time())
@@ -18,6 +25,7 @@ function love.load()
 	
 	helpers = require 'lib.helpers'
 	ui = require 'lib.ui'
+	net = require 'lib.net'
 	
 	cursors = {
 		brush = love.mouse.newCursor( love.image.newImageData("assets/sprites/icons/brush.png"), 4, 26 ),
@@ -71,13 +79,14 @@ function resetTool()
 	endDrag = nil
 end
 
-function eraseAt(wx, wy)
-	local lines = layers[layer]
+function eraseAt(wx, wy, rad, lay)
+	local lines = layers[lay or layer]
+	local radius = rad or size / 2
 	local i = 1
 	while i <= #lines do
 		local s = lines[i]
 		if s.type == 'line' and s ~= tempVisual then
-			local pieces = helpers.eraseFromStroke(s, wx, wy, size / 2)
+			local pieces = helpers.eraseFromStroke(s, wx, wy, radius)
 			if #pieces == 1 and pieces[1] == s then
 				i = i + 1
 			else
@@ -94,6 +103,7 @@ function eraseAt(wx, wy)
 end
 
 function love.update(dt)
+	net.update()
 	mouse.wx, mouse.wy = mouse.x - pan.x, mouse.y - pan.y
 	
 	if not ui.hasMouse then
@@ -113,11 +123,13 @@ function love.update(dt)
 			end
 			
 			if startDrag and not mouse.lb then
-				table.insert(layers[layer], { 
+				local stroke = {
 					type = 'line', width = size,
 					points = helpers.copyTable(toolBuffer),
 					color = helpers.copyTable(color)
-				})
+				}
+				table.insert(layers[layer], stroke)
+				net.sendStroke(layer, stroke)
 				resetTool()
 				for i, v in ipairs(layers[layer]) do
 					if v == tempVisual then
@@ -130,10 +142,15 @@ function love.update(dt)
 				local lx, ly = lastErase.x or mouse.wx, lastErase.y or mouse.wy
 				local dist = math.sqrt((mouse.wx - lx)^2 + (mouse.wy - ly)^2)
 				local steps = math.max(1, math.ceil(dist / math.max (1, size / 4)))
+				local erased = {}
 				for k = 1, steps do
 					local t = k / steps
-					eraseAt(lx + (mouse.wx - lx) * t, ly + (mouse.wy - ly) * t)
+					local ex, ey = lx + (mouse.wx - lx) * t, ly + (mouse.wy - ly) * t
+					eraseAt(ex,ey)
+					table.insert(erased, ex)
+					table.insert(erased, ey)
 				end
+				net.sendErase(layer, size/2, erased)
 				lastErase.x, lastErase.y = mouse.wx, mouse.wy
 			else
 				lastErase.x, lastErase.y = nil, nil
@@ -199,9 +216,29 @@ function love.keypressed(key)
 	ui.handleKey(key)
 end
 
+function drawGrid()
+	local step = 200
+	local w, h = 1200, 720
+	local gx0, gx1 = math.floor(-pan.x / step), math.ceil((w - pan.x) / step)
+	local gy0, gy1 = math.floor(-pan.y / step), math.ceil((h - pan.y) / step)
+	
+	love.graphics.setFont(fonts.num)
+	love.graphics.setColor(0.9, 0.9, 0.9, 1)
+	for gx = gx0, gx1 do
+		for gy = gy0, gy1 do
+			local x, y = gx * step, gy * step
+			love.graphics.circle('fill', x, y, 3)
+			love.graphics.print(string.format('%d.%d', x, y), x + 6, y + 4)
+		end
+	end
+	love.graphics.setFont(fonts.main)
+end
+
 function love.draw()
 	love.graphics.clear(1,1,1,1)
 	love.graphics.translate(pan.x, pan.y)
+	drawGrid()
+	
 	for _, l in ipairs(layers) do
 		for _, d in ipairs(l) do
 			if d.type == 'line' then
@@ -270,7 +307,7 @@ function love.draw()
 			love.graphics.print('Host', 116, 86, 0, 1.5, 1.5)
 			love.graphics.setFont(fonts.main)
 			love.graphics.print('Port', 116, 162, 0, 1, 1)
-			port = tonumber(ui.textBox(tostring(port), 206, 157, 300, 34, '%d'))
+			port = ui.textBox(tostring(port), 206, 157, 300, 34, '%d')
 			
 			love.graphics.print('Code', 116, 212, 0, 1, 1)
 			code = ui.textBox(code, 206, 206, 300, 34)
@@ -281,7 +318,7 @@ function love.draw()
 			joinAddress = ui.textBox(joinAddress, 265, 157, 241, 34)
 			
 			love.graphics.print('Port', 116, 212, 0, 1, 1)
-			port = tonumber(ui.textBox(tostring(port), 265, 206, 241, 34, '%d'))
+			port = ui.textBox(tostring(port), 265, 206, 241, 34, '%d')
 			
 			love.graphics.print('Code', 116, 262, 0, 1, 1)
 			code = ui.textBox(code, 265, 255, 241, 34)
@@ -289,9 +326,18 @@ function love.draw()
 		
 		love.graphics.print('Name', 116 + 80, 584, 0, 1, 1)
 		name = ui.textBox(name, 206 + 80, 578, 220, 34)
-		ui.button(116, 564, nil, sprites.icons.right, nil, function()
-			
-		end)
+		love.graphics.printf(net.status, 116, 440, 860, 'left')
+		if net.isActive() then
+			ui.button(116, 564, nil, sprites.icons.left, nil, function() net.stop() end)
+		else
+			ui.button(116, 564, nil, sprites.icons.right, nil, function()
+				if mpDialogTab == 0 then
+					net.startHost(port,code,name)
+				else
+					net.join(joinAddress, port, code, name)
+				end
+			end)
+		end
 		ui.button(564, 112, {0,0,0,0}, ranImg)
 	end
 	
@@ -307,4 +353,8 @@ function love.draw()
 	ui.pendingText = ''
 	ui.pendingBackspaces = 0
 	mouse.pressed = false
+end
+
+function love.quit()
+	net.stop()
 end
