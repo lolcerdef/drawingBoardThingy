@@ -190,6 +190,7 @@ function net.stop(statusOverride)
 	net.ready = false
 	net.online = 1
 	net.status = statusOverride or 'Offline'
+	multiplayerDialog = true
 end
 
 function net.startHost(port, code, name)
