@@ -362,7 +362,8 @@ function love.draw()
 		ui.button(564, 112, {0,0,0,0}, ranImg)
 	end
 	
-	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function() 
+	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function()
+		menuDialog = false
 		multiplayerDialog = not multiplayerDialog
 		if multiplayerDialog then
 			love.mouse.setCursor(cursors.cursor)
@@ -377,6 +378,7 @@ function love.draw()
 	end
 	
 	ui.button(1128, 8, nil, sprites.icons.burger, nil, function()
+		multiplayerDialog = false
 		menuDialog = not menuDialog
 	end)
 	
