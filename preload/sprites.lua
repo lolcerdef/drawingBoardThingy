@@ -26,4 +26,6 @@ for i = 0, 4 do
 	table.insert(sprites.random, love.graphics.newImage('assets/sprites/random/'..i..'.png'))
 end
 
+sprites.comingsoon = love.graphics.newImage('assets/sprites/ui/comingsoon.png')
+
 return sprites

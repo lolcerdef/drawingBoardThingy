@@ -4,7 +4,6 @@ utf8 = require "utf8"
 things to add:
 - see others cursor and color (plus name under cursor)
 - go to coordinate
-- zoom
 - export/import
 ]]
 
@@ -34,7 +33,9 @@ function love.load()
 	}
 	love.mouse.setCursor(cursors.brush)
 	multiplayerDialog = false
+	menuDialog = false
 	mpDialogTab = 0
+	menuDialogTab = 0
 	
 	mouse = {
 		lb = false,
@@ -47,7 +48,7 @@ function love.load()
 		wx = 0,
 		wy = 0,
 	}
-	pan = { x = 0, y = 0, sx = nil, sy = nil}
+	pan = { x = 0, y = 0, zoom = 1, sx = nil, sy = nil}
 	color = {0,0,0,1}
 	tool = 'brush'
 	toolBuffer = {}
@@ -104,9 +105,19 @@ end
 
 function love.update(dt)
 	net.update()
-	mouse.wx, mouse.wy = mouse.x - pan.x, mouse.y - pan.y
 	
 	if not ui.hasMouse then
+		if mouse.sc ~= 0 then
+			local oldZoom = pan.zoom
+			local newZoom = helpers.clamp(oldZoom * 1.1 ^ mouse.sc, 0.1, 10)
+			local wx = (mouse.x - pan.x) / oldZoom
+			local wy = (mouse.y - pan.y) / oldZoom
+			pan.zoom = newZoom
+			pan.x = mouse.x - wx * newZoom
+			pan.y = mouse.y - wy * newZoom
+		end
+		mouse.wx = (mouse.x - pan.x) / pan.zoom
+		mouse.wy = (mouse.y - pan.y) / pan.zoom
 		
 		if tool == 'brush' then
 			if mouse.lb then
@@ -159,8 +170,8 @@ function love.update(dt)
 		
 		if mouse.mb then
 			if pan.sx and pan.sy then
-				pan.x = mouse.x - pan.sx 
-				pan.y = mouse.y - pan.sy
+				pan.x = mouse.x - pan.sx * pan.zoom 
+				pan.y = mouse.y - pan.sy * pan.zoom
 			else
 				pan.sx = mouse.wx
 				pan.sy = mouse.wy
@@ -219,8 +230,8 @@ end
 function drawGrid()
 	local step = 200
 	local w, h = 1200, 720
-	local gx0, gx1 = math.floor(-pan.x / step), math.ceil((w - pan.x) / step)
-	local gy0, gy1 = math.floor(-pan.y / step), math.ceil((h - pan.y) / step)
+	local gx0, gx1 = math.floor(-pan.x / pan.zoom / step), math.ceil((w - pan.x) / pan.zoom / step)
+	local gy0, gy1 = math.floor(-pan.y / pan.zoom / step), math.ceil((h - pan.y) / pan.zoom / step)
 	
 	love.graphics.setFont(fonts.num)
 	love.graphics.setColor(0.9, 0.9, 0.9, 1)
@@ -236,13 +247,15 @@ end
 
 function love.draw()
 	love.graphics.clear(1,1,1,1)
+	love.graphics.push()
 	love.graphics.translate(pan.x, pan.y)
+	love.graphics.scale(pan.zoom)
 	drawGrid()
 	
 	for _, l in ipairs(layers) do
 		for _, d in ipairs(l) do
 			if d.type == 'line' then
-				if not (#d.points % 2) then goto skip end
+				if #d.points % 2 == 1 and #d.points ~= 0 then goto skip end
 				love.graphics.setColor(d.color)
 				if #d.points >= 4 then
 					love.graphics.setLineWidth(d.width)
@@ -256,13 +269,13 @@ function love.draw()
 			::skip::
 		end
 	end
-	love.graphics.translate(-pan.x,-pan.y)
+	love.graphics.pop()
 	
 	love.graphics.setColor(color)
 	if tool == 'brush' then
-		love.graphics.circle('fill', mouse.x, mouse.y, size/2)
+		love.graphics.circle('fill', mouse.x, mouse.y, size/2 * pan.zoom)
 	elseif tool == 'erase' then
-		helpers.dottedCirc(mouse.x, mouse.y, size/2, math.floor(size), 1)
+		helpers.dottedCirc(mouse.x, mouse.y, size/2 * pan.zoom, math.floor(size), 1)
 	end
 	
 	love.graphics.setColor(1,1,1,1)
@@ -295,9 +308,12 @@ function love.draw()
 	end)
 	ui.canInput = true
 	
-	if multiplayerDialog then
+	if menuDialog or multiplayerDialog then
 		ui.drawbox(-72,-72, 18, 12, {0,0,0,0.3})
 		ui.drawbox(96,72, 14, 8)
+	end
+	
+	if multiplayerDialog then
 		ui.button(8, 88, nil, sprites.icons.host, nil, function() mpDialogTab = 0 end)
 		ui.button(8, 168, nil, sprites.icons.join, nil, function() mpDialogTab = 1 end)
 		
@@ -355,6 +371,15 @@ function love.draw()
 			love.mouse.setCursor(cursors[tool])
 		end
 	end)
+	
+	if menuDialog then
+		ui.button(196, 86, {0,0,0,0}, sprites.comingsoon)
+	end
+	
+	ui.button(1128, 8, nil, sprites.icons.burger, nil, function()
+		menuDialog = not menuDialog
+	end)
+	
 	ui.pendingText = ''
 	ui.pendingBackspaces = 0
 	mouse.pressed = false
