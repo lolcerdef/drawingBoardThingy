@@ -207,6 +207,7 @@ end
 
 function love.wheelmoved(x, y)
 	mouse.sc = y
+	mouse.uiSc = y
 end
 
 function love.textinput(text)
@@ -316,7 +317,8 @@ function love.draw()
 	if multiplayerDialog then
 		ui.button(8, 88, nil, sprites.icons.host, nil, function() mpDialogTab = 0 end)
 		ui.button(8, 168, nil, sprites.icons.join, nil, function() mpDialogTab = 1 end)
-		
+		ui.button(8, 248, nil, sprites.icons.who, nil, function() mpDialogTab = 2 end)
+		ui.canInput = not net.isActive()
 		love.graphics.setFont(fonts.title)
 		love.graphics.setColor(0,0,0)
 		if mpDialogTab == 0 then
@@ -339,14 +341,18 @@ function love.draw()
 			love.graphics.print('Code', 116, 262, 0, 1, 1)
 			code = ui.textBox(code, 265, 255, 241, 34)
 			love.graphics.printf('Joining will delete EVERYTHING here.', 116, 302, 310, 'left')
+		else
+			love.graphics.print('People', 116, 86, 0, 1.5, 1.5)
+			love.graphics.setFont(fonts.main)
 		end
 		
 		if net.status ~= 'Offline' then
-		love.graphics.printf(net.status, 116, 440, 300, 'left')
+			love.graphics.printf(net.status, 116, 440, 300, 'left')
 		end
 		love.graphics.print('Name', 116 + 80, 584, 0, 1, 1)
 		name = ui.textBox(name, 206 + 80, 578, 220, 34)
 		if net.isActive() then
+			ui.canInput = true
 			ui.button(116, 564, nil, sprites.icons.left, nil, function() net.stop() end)
 		else
 			ui.button(116, 564, nil, sprites.icons.right, nil, function()
@@ -359,7 +365,10 @@ function love.draw()
 				end
 			end)
 		end
-		ui.button(564, 112, {0,0,0,0}, ranImg)
+		
+		if mpDialogTab ~= 2 then
+			ui.button(564, 112, {0,0,0,0}, ranImg)
+		end
 	end
 	
 	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function()
@@ -384,6 +393,8 @@ function love.draw()
 	
 	ui.pendingText = ''
 	ui.pendingBackspaces = 0
+	mouse.uiSc = 0
+	ui.cleanScrollValues()
 	mouse.pressed = false
 end
 

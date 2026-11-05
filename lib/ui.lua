@@ -5,6 +5,7 @@ ui.pendingText = ""
 ui.pendingBackspaces = 0
 ui.hasMouse = false
 ui.canInput = true
+ui.scrollValues = {}
 local g = love.graphics
 
 function ui.drawbox(x, y, w, h, col)
@@ -144,7 +145,8 @@ function ui.textBox(val, x, y, w, h, allowedChars)
 		end
 	end
 	
-	g.setColor(1,1,1,1)
+	local col = ui.canInput and {1,1,1,1} or {.7,.7,.7,1}
+	g.setColor(col)
 	g.rectangle('fill', x, y, w, h)
 	g.setColor(0,0,0,1)
 	g.setLineWidth(active and 4 or 2)
@@ -163,6 +165,66 @@ function ui.textBox(val, x, y, w, h, allowedChars)
 	g.setScissor()
 	
 	return val
+end
+
+function ui.scrollSpace(x, y, w, h, maxScroll, items)
+	local hovered = helpers.isInBox(mouse.x, mouse.y, x, y, w, h)
+	if hovered then ui.hasMouse = true end
+	
+	local id = x .. ',' .. y
+	local s = ui.scrollValues[id]
+	if not s then
+		s = {scroll = 0, velo = 0}
+		ui.scrollValues[id] = s
+	end
+	s.used = true
+	
+	if hovered and mouse.uiSc ~= 0 then
+		s.velo = s.velo - mouse.uiSc * 8
+	end
+	s.scroll = helpers.clamp(s.scroll + s.velo, 0, maxScroll)
+	if s.scroll == 0 or s.scroll == maxScroll then s.velo = 0 end
+	s.velo = s.velo * 0.8
+	if math.abs(s.velo) < 0.1 then s.velo = 0 end
+	
+	local mx, my = mouse.x, mouse.y
+	if hovered or ui.activeSlider then
+		mouse.x, mouse.y = mx - x, my - y + s.scroll
+	else
+		mouse.x, mouse.y = -1e6, -1e6
+	end
+	
+	ui.drawbox(x,y,w/72,h/72)
+	
+	g.setScissor(x+4,y+4, w-8,h-8)
+	g.push()
+	g.translate(x,y-s.scroll)
+	
+	for _, i in ipairs(items or {}) do
+		local p = i.params
+		if i.type == 'button' then
+			ui.button(unpack(p))
+		elseif i.type == 'text' then
+			g.setColor(i.color or {0,0,0,1})
+			g.print(unpack(p))
+		elseif i.type == 'slider' then
+			local v = ui.slider(unpack(p))
+			if i.onChange then i.onChange(v) end
+		end
+	end
+	g.pop()
+	g.setScissor()
+	
+	mouse.x,mouse.y = mx, my
+end
+
+function ui.cleanScrollValues()
+	for id, v in pairs(ui.scrollValues) do
+		if not v.used then
+			ui.scrollValues[id] = nil
+		end
+		v.used = false
+	end
 end
 
 return ui

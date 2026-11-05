@@ -17,6 +17,7 @@ sprites.icons = {
 	multiplayer = love.graphics.newImage('assets/sprites/icons/multiplayer.png'),
 	host = love.graphics.newImage('assets/sprites/icons/host.png'),
 	join = love.graphics.newImage('assets/sprites/icons/join.png'),
+	who = love.graphics.newImage('assets/sprites/icons/who.png'),
 	copy = love.graphics.newImage('assets/sprites/icons/copy.png'),
 	paste = love.graphics.newImage('assets/sprites/icons/paste.png'),
 	burger = love.graphics.newImage('assets/sprites/icons/burger.png'),
