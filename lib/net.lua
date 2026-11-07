@@ -7,6 +7,7 @@ W|hostname: host -> client, welcome
 X|reason: host -> client, deny
 D: host -> client, snapshot
 N|count: host -> client, people count
+P|you|name|name...: host -> client, roster (you = your index, host is 1)
 S|layer|width|r|g|b|a|x,y... : stroke 
 E|layer|radius|x,y... : eraser
 ]]
@@ -24,6 +25,8 @@ net.server = nil
 net.peers = {}
 net.ready = false
 net.online = 1
+net.people = {}
+net.selfIndex = nil
 net.name = 'Guest'
 net.code = ''
 net.address = ''
@@ -62,6 +65,11 @@ end
 local function clean(s)
 	s = (s or ''):gsub('[|%c]','')
 	return s:sub(1,24)
+end
+
+local function shown(n)
+	n = n or ''
+	return n ~= '' and n or 'Guest'
 end
 
 local function ensureLayer(n)
@@ -161,12 +169,23 @@ end
 
 local function announceCount()
 	if net.mode ~= 'host' then return end
-	local n = 1
-	for _, p in pairs(net.peers) do
-		if p.ok then n = n + 1 end
+	local names = { shown(net.name) }
+	local idx = {}
+	for i, p in pairs(net.peers) do
+		if p.ok then
+			names[#names + 1] = shown(p.name)
+			idx[i] = #names
+		end
 	end
-	net.online = n
-	broadcast('N|' .. n)
+	net.online = #names
+	net.people = names
+	net.selfIndex = 1
+	local list = table.concat(names, '|')
+	for i, n in pairs(idx) do
+		local peer = net.peers[i].peer
+		send(peer, 'N|' .. #names)
+		send(peer, 'P|' .. n .. '|' .. list)
+	end
 end
 
 function net.isActive()
@@ -189,6 +208,8 @@ function net.stop(statusOverride)
 	net.mode = nil
 	net.ready = false
 	net.online = 1
+	net.people = {}
+	net.selfIndex = nil
 	net.status = statusOverride or 'Offline'
 	multiplayerDialog = true
 end
@@ -211,6 +232,8 @@ function net.startHost(port, code, name)
 	net.peers = {}
 	net.name, net.code, net.port = clean(name), code or '', port
 	net.online = 1
+	net.people = { shown(net.name) }
+	net.selfIndex = 1
 	net.status = 'Hosting on port ' .. net.port
 	return true
 end
@@ -295,6 +318,14 @@ local function cHandle(msg)
 		applyErase(parts)
 	elseif t == 'N' then
 		net.online = tonumber(parts[2]) or net.online
+	elseif t == 'P' then
+		local names = {}
+		for i = 3, math.min(#parts, 66) do
+			names[#names + 1] = shown(clean(parts[i]))
+		end
+		net.people = names
+		net.selfIndex = tonumber(parts[2])
+		net.online = #names
 	end
 end
 

@@ -344,6 +344,23 @@ function love.draw()
 		else
 			love.graphics.print('People', 116, 86, 0, 1.5, 1.5)
 			love.graphics.setFont(fonts.main)
+			
+			local items = {}
+			local rowH = 40
+			if net.isActive() and (net.mode == 'host' or net.ready) then
+				for i, n in ipairs(net.people) do
+					local label = n
+					if i == 1 then label = label .. '  (host)' end
+					if i == net.selfIndex then label = label .. '  (you)' end
+					table.insert(items, { type = 'text', color = {0,0,0,1}, params = { label, 24, 16 + (i - 1) * rowH } })
+				end
+			else
+				table.insert(items, { type = 'text', color = {0.4,0.4,0.4,1}, params = { 'Not in a session. No one here.', 24, 16 } })
+			end
+			local areaH = 288
+			local maxScroll = math.max(0, #items * rowH + 24 - (areaH - 8))
+			ui.scrollSpace(116, 140, 936, areaH, maxScroll, items)
+			love.graphics.setColor(0,0,0)
 		end
 		
 		if net.status ~= 'Offline' then
