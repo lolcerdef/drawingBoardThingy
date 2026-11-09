@@ -281,7 +281,8 @@ function love.draw()
 				local name = net.people[i] or 'Guest'
 				local drawCol = {col[1], col[2], col[3], math.max(0.1, col[4])}
 				love.graphics.setColor(drawCol)
-				love.graphics.draw(sprites.tools[c.tool or 'brush'], sx, sy, 0, 1, 1, 4, 26)
+				local spr = sprites.tools[c.tool or 'brush'] or sprites.tools.brush
+				love.graphics.draw(spr, sx, sy, 0, 1, 1, 4, 26)
 				helpers.outlinedText(2, name, sx, sy + 10, drawCol, {1, 1, 1, 1}, fonts.main)
 			end
 		end
