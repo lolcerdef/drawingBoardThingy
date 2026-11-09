@@ -6,6 +6,7 @@ It is a infinite canvas made with LÖVE.
 - eraser
 - layers
 - multiplayer
+- see other people's cursors
 ## Controls
 | Action | Input |
 | --- | --- |
@@ -13,5 +14,4 @@ It is a infinite canvas made with LÖVE.
 | pan | MMB |
 | zoom | mouse wheel |
 ### Things that might get added later
-- seeing other's cursor, color, name, and tool
 - top right menu button menu

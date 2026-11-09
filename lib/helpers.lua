@@ -141,4 +141,33 @@ function helpers.play(snd, vol)
 	snd:play()
 end
 
+function helpers.outlinedText(outlineWidth, text, x, y, textColor, outlineColor, font, limit, align)
+	local prevFont = love.graphics.getFont()
+	local pr, pg, pb, pa = love.graphics.getColor()
+	
+	if font then love.graphics.setFont(font) end
+	
+	outlineColor = outlineColor or {1, 1, 1, 1}
+	textColor = textColor or {0, 0, 0, 1}
+	
+	local function draw(dx, dy)
+		if limit then
+			love.graphics.printf(text, x + dx, y + dy, limit, align or "left")
+		else
+			love.graphics.print(text, x + dx, y + dy)
+		end
+	end
+	love.graphics.setColor(outlineColor)
+	local steps = math.max(8, math.ceil(outlineWidth * 8))
+	for i = 0, steps - 1 do
+		local angle = (i / steps) * math.pi * 2
+		draw(math.cos(angle) * outlineWidth, math.sin(angle) * outlineWidth)
+	end
+	love.graphics.setColor(textColor)
+	draw(0, 0)
+	
+	love.graphics.setColor(pr, pg, pb, pa)
+	love.graphics.setFont(prevFont)
+end
+
 return helpers

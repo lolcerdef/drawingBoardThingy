@@ -9,7 +9,7 @@ sprites.ui = {
 }
 sprites.tools = {
 	brush = love.graphics.newImage('assets/sprites/icons/brush.png'),
-	eraser = love.graphics.newImage('assets/sprites/icons/eraser.png'),
+	erase = love.graphics.newImage('assets/sprites/icons/eraser.png'),
 }
 sprites.icons = {
 	left = love.graphics.newImage('assets/sprites/icons/left.png'),

@@ -2,7 +2,6 @@ utf8 = require "utf8"
 
 --[[
 things to add:
-- see others cursor and color (plus name under cursor)
 - go to coordinate
 - export/import
 ]]
@@ -272,6 +271,22 @@ function love.draw()
 	end
 	love.graphics.pop()
 	
+	if net.isActive() then
+		love.graphics.setFont(fonts.main)
+		for i, c in pairs(net.cursors) do
+			local sx = c.x * pan.zoom + pan.x
+			local sy = c.y * pan.zoom + pan.y
+			if sx > -50 and sx < 1250 and sy > -50 and sy < 770 then
+				local col = c.color
+				local name = net.people[i] or 'Guest'
+				local drawCol = {col[1], col[2], col[3], math.max(0.1, col[4])}
+				love.graphics.setColor(drawCol)
+				love.graphics.draw(sprites.tools[c.tool or 'brush'], sx, sy, 0, 1, 1, 4, 26)
+				helpers.outlinedText(2, name, sx, sy + 10, drawCol, {1, 1, 1, 1}, fonts.main)
+			end
+		end
+	end
+	
 	love.graphics.setColor(color)
 	if tool == 'brush' then
 		love.graphics.circle('fill', mouse.x, mouse.y, size/2 * pan.zoom)
@@ -285,11 +300,14 @@ function love.draw()
 	ui.canInput = not multiplayerDialog
 	ui.drawbox(60, 628, 15, 2)
 	local toolButtonPressed = false
-	toolButtonPressed = ui.button(82, 646, nil, sprites.tools.brush, tool == 'brush' and color, function() tool = 'brush' end) or toolButtonPressed
-	toolButtonPressed = ui.button(156, 646, nil, sprites.tools.eraser, tool == 'erase' and color, function() tool = 'erase' end) or toolButtonPressed
+	local uicolor = helpers.copyTable(color)
+	uicolor[4] = math.max(0.1,color[4])
+	toolButtonPressed = ui.button(82, 646, nil, sprites.tools.brush, tool == 'brush' and uicolor, function() tool = 'brush' end) or toolButtonPressed
+	toolButtonPressed = ui.button(156, 646, nil, sprites.tools.erase, tool == 'erase' and uicolor, function() tool = 'erase' end) or toolButtonPressed
 	color[1] = ui.slider(color[1], 0, 1, 500, 660, 16, 12, 100, {color[1], 0, 0}, {1 - color[1], 0, 0})
 	color[2] = ui.slider(color[2], 0, 1, 575, 696, 16, 12, 100, {0, color[2], 0}, {0, 1 - color[2], 0})
 	color[3] = ui.slider(color[3], 0, 1, 650, 660, 16, 12, 100, {0, 0, color[3]}, {0, 0, 1 - color[3]})
+	color[4] = ui.slider(color[4], 0, 1, 575+150, 696, 16, 12, 100, nil, uicolor)
 	size = ui.slider(size, 1, 100, 252, 678, 16 + ( size/100 * 16), 16, 200, {1,1,1})
 	
 	if toolButtonPressed then

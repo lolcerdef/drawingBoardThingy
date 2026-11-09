@@ -10,6 +10,8 @@ N|count: host -> client, people count
 P|you|name|name...: host -> client, roster (you = your index, host is 1)
 S|layer|width|r|g|b|a|x,y... : stroke 
 E|layer|radius|x,y... : eraser
+I|x|y|r|g|b|a|tool|size: client -> host, cursor position
+I|idx|x|y|r|g|b|a|tool|size: host -> client, someone's cursor (index = roster index)
 ]]
 
 local net = {}
@@ -17,6 +19,12 @@ local net = {}
 local maxLayers = 1000
 local connectTimeout = 8
 local version = 1
+local cursorInterval = 0.05
+local cursorTimeout = 5
+
+net.cursors = {}
+local lastCursorSend = 0
+local lastCursorX, lastCursorY
 
 net.mode = nil -- 'host' or 'client'
 net.status = 'Offline'
@@ -33,8 +41,27 @@ net.address = ''
 net.port = 0
 net.connectStarted = 0
 
+local function now()
+	return love.timer.getTime()
+end
+
 local function num(v)
 	return string.format('%.8g', v)
+end
+
+local function parseCursor(parts, s)
+	local x, y = tonumber(parts[s]), tonumber(parts[s + 1])
+	local r,g, b, a = tonumber(parts[s + 2]), tonumber(parts[s + 3]),
+		tonumber(parts[s + 4]), tonumber(parts[s + 5])
+	local tl = parts[s + 6]
+	local si = parts[s + 7]
+	if not (x and y and r and g and b and a) then return nil end
+	return { x = x, y = y, color = { r,g, b, a }, tool = tl, size = si, t = now() }
+end
+local function encodeCursor(x, y, c, t, s)
+	return table.concat({
+		num(x), num(y),num(c[1]), num(c[2]), num(c[3]), num(c[4] or 1), t, num(s)
+	}, '|')
 end
 
 local function decodeList(str)
@@ -156,6 +183,24 @@ function net.sendErase(lay, rad, pts)
 	sendOut(encodeErase(lay, rad, pts))
 end
 
+function net.sendCursor(wx, wy, color)
+	if not net.mode then return end
+	if net.mode == 'client' and not net.ready then return end
+	local t = now()
+	if t - lastCursorSend < cursorInterval then return end
+	if wx == lastCursorX and wy == lastCursorY and t - lastCursorSend < 1 then
+		return
+	end
+	lastCursorSend, lastCursorX, lastCursorY = t, wx, wy
+	
+	local body = encodeCursor(wx, wy, color, tool, size)
+	if net.mode == 'host' then
+		broadcast('I|1|'..body)
+	else
+		send(net.server, 'I|'..body)
+	end
+end
+
 local function sendSnapshot(peer)
 	local skip = rawget(_G, 'tempVisual')
 	for li, l in ipairs(layers) do
@@ -175,11 +220,13 @@ local function announceCount()
 		if p.ok then
 			names[#names + 1] = shown(p.name)
 			idx[i] = #names
+			p.roster = #names
 		end
 	end
 	net.online = #names
 	net.people = names
 	net.selfIndex = 1
+	net.cursors = {}
 	local list = table.concat(names, '|')
 	for i, n in pairs(idx) do
 		local peer = net.peers[i].peer
@@ -209,6 +256,7 @@ function net.stop(statusOverride)
 	net.ready = false
 	net.online = 1
 	net.people = {}
+	net.cursors = {}
 	net.selfIndex = nil
 	net.status = statusOverride or 'Offline'
 	multiplayerDialog = true
@@ -234,6 +282,7 @@ function net.startHost(port, code, name)
 	net.online = 1
 	net.people = { shown(net.name) }
 	net.selfIndex = 1
+	net.cursors = {}
 	net.status = 'Hosting on port ' .. net.port
 	return true
 end
@@ -298,6 +347,12 @@ local function hHandle(entry, i, msg)
 		if applyStroke(parts) then broadcast(msg, i) end
 	elseif entry.ok and t == 'E' then
 		if applyErase(parts) then broadcast(msg, i) end
+	elseif entry.ok and t == 'I' then
+		local c = parseCursor(parts, 2)
+		if c and entry.roster then
+			net.cursors[entry.roster] = c
+			broadcast('I|' .. entry.roster .. '|' .. table.concat(parts, '|', 2), i)
+		end
 	end
 end
 
@@ -326,6 +381,10 @@ local function cHandle(msg)
 		net.people = names
 		net.selfIndex = tonumber(parts[2])
 		net.online = #names
+	elseif t == 'I' then
+		local idx = tonumber(parts[2])
+		local c = parseCursor(parts, 3)
+		if idx and c and idx ~= net.selfIndex then net.cursors[idx] = c end
 	end
 end
 
@@ -358,6 +417,14 @@ end
 
 function net.update()
 	if not net.host then return end
+	net.sendCursor(mouse.wx, mouse.wy, color)
+	
+	local t = now()
+	for idx, c in pairs(net.cursors) do
+		if t -c.t > cursorTimeout then
+			net.cursors[idx] = nil
+		end
+	end
 	
 	if net.mode == 'client' and not net.ready
 		and os.time() - net.connectStarted > connectTimeout then
