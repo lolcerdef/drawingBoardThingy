@@ -4,6 +4,14 @@ utf8 = require "utf8"
 things to add:
 - go to coordinate
 - export/import
+	https://developer.mozilla.org/en-US/docs/Web/SVG
+	dbd file should probably be:
+	l0
+	s[R,G,B][SIZE][point, ...]
+	etc
+	l1
+	etc
+	png should just be simple coordinate to coordinate and size of pixel
 ]]
 
 function love.load()
@@ -22,6 +30,7 @@ function love.load()
 	sounds = require 'preload.sounds'
 	
 	helpers = require 'lib.helpers'
+	saving = require 'lib.saving'
 	ui = require 'lib.ui'
 	net = require 'lib.net'
 	
@@ -407,24 +416,47 @@ function love.draw()
 		end
 	end
 	
+	if menuDialog then
+		local drawComingSoon = menuDialogTab == 0
+		ui.button(1128, 88, nil, sprites.icons.cog, nil, function() menuDialogTab = 0 end)
+		ui.button(1128, 168, nil, sprites.icons.export, nil, function() menuDialogTab = 1 end)
+		love.graphics.setFont(fonts.title)
+		love.graphics.setColor(0,0,0)
+		
+		if menuDialogTab == 0 then
+		
+		elseif menuDialogTab == 1 then
+			love.graphics.print('Export', 116, 86, 0, 1.5, 1.5)
+			love.graphics.setFont(fonts.main)
+		end
+		
+		
+		if drawComingSoon then
+			ui.button(196, 86, {0,0,0,0}, sprites.comingsoon)
+		end
+	end
+	
+	local function updateCursor()
+		if multiplayerDialog or menuDialog then
+			love.mouse.setCursor(cursors.cursor)
+		else
+			love.mouse.setCursor(cursors[tool])
+		end
+	end
+	
 	ui.button(8, 8, nil, sprites.icons.multiplayer, nil, function()
 		menuDialog = false
 		multiplayerDialog = not multiplayerDialog
 		if multiplayerDialog then
-			love.mouse.setCursor(cursors.cursor)
 			ranImg = sprites.random[math.random(1,5)]
-		else
-			love.mouse.setCursor(cursors[tool])
 		end
+		updateCursor()
 	end)
-	
-	if menuDialog then
-		ui.button(196, 86, {0,0,0,0}, sprites.comingsoon)
-	end
-	
+
 	ui.button(1128, 8, nil, sprites.icons.burger, nil, function()
 		multiplayerDialog = false
 		menuDialog = not menuDialog
+		updateCursor()
 	end)
 	
 	ui.pendingText = ''

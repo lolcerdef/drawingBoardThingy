@@ -21,6 +21,11 @@ sprites.icons = {
 	copy = love.graphics.newImage('assets/sprites/icons/copy.png'),
 	paste = love.graphics.newImage('assets/sprites/icons/paste.png'),
 	burger = love.graphics.newImage('assets/sprites/icons/burger.png'),
+	export = love.graphics.newImage('assets/sprites/icons/export.png'),
+	cog = love.graphics.newImage('assets/sprites/icons/cog.png'),
+	png = love.graphics.newImage('assets/sprites/icons/png.png'),
+	svg = love.graphics.newImage('assets/sprites/icons/svg.png'),
+	dbd = love.graphics.newImage('assets/sprites/icons/dbd.png'),
 }
 sprites.random = {}
 for i = 0, 4 do
