@@ -3,14 +3,9 @@ utf8 = require "utf8"
 --[[
 things to add:
 - go to coordinate
+- settings
+- more tools
 - export/import
-	https://developer.mozilla.org/en-US/docs/Web/SVG
-	dbd file should probably be:
-	l0
-	s[R,G,B][SIZE][point, ...]
-	etc
-	l1
-	etc
 	png should just be simple coordinate to coordinate and size of pixel
 ]]
 
@@ -44,6 +39,11 @@ function love.load()
 	menuDialog = false
 	mpDialogTab = 0
 	menuDialogTab = 0
+	exportFormat = 'svg'
+	exportName = 'export'
+	importName = 'export'
+	menuStatus = ''
+	menuStatusOk = true
 	
 	mouse = {
 		lb = false,
@@ -59,6 +59,7 @@ function love.load()
 	pan = { x = 0, y = 0, zoom = 1, sx = nil, sy = nil}
 	color = {0,0,0,1}
 	tool = 'brush'
+	subTool = 'rect'
 	toolBuffer = {}
 	tempVisual = {}
 	startDrag = nil
@@ -156,6 +157,12 @@ function love.update(dt)
 					end
 				end
 			end
+		elseif tool == 'shape' then
+			if subTool == 'circ' then
+				
+			elseif subTool == 'rect' then
+				
+			end
 		elseif tool == 'erase' then
 			if mouse.lb then
 				local lx, ly = lastErase.x or mouse.wx, lastErase.y or mouse.wy
@@ -252,6 +259,74 @@ function drawGrid()
 		end
 	end
 	love.graphics.setFont(fonts.main)
+end
+
+local function safeName(n)
+	n = n:gsub('[^%w_%- ]', '_')
+	if n == '' then n = 'export' end
+	return n
+end
+ 
+function doExport()
+	local fmt = exportFormat
+	local file = safeName(exportName) .. '.' .. fmt
+	local ok, res, err = pcall(saving[fmt].export, layers, file)
+	if ok and res then
+		menuStatusOk = true
+		menuStatus = 'Saved ' .. file .. ' to:\n' .. love.filesystem.getSaveDirectory()
+	else
+		menuStatusOk = false
+		menuStatus = 'Export failed: ' .. tostring(ok and err or res)
+	end
+end
+
+local function applyImport(newLayers, label)
+	layers = newLayers
+	layer = 1
+	tempVisual = {}
+	resetTool()
+	menuStatusOk = true
+	menuStatus = 'Imported ' .. label
+end
+
+function doImport()
+	if net.isActive() then return end
+	local file = safeName(importName) .. '.dbd'
+	local res, err = saving.dbd.import(file)
+	if res then
+		applyImport(res, file)
+	else
+		menuStatusOk = false
+		menuStatus = 'Import failed: ' .. tostring(err)
+	end
+end
+
+function love.filedropped(file)
+	if net.isActive() then
+		menuDialog, multiplayerDialog = true, false
+		menuDialogTab = 1
+		menuStatusOk = false
+		menuStatus = 'Leave your multiplayer session to import.'
+		return
+	end
+	local name = file:getFilename()
+	menuDialog, multiplayerDialog = true, false
+	menuDialogTab = 1
+	if not name:lower():match('%.dbd$') then
+		menuStatusOk = false
+		menuStatus = 'Only .dbd files can be imported.'
+		return
+	end
+	file:open('r')
+	local data = file:read()
+	file:close()
+	local ok, res = pcall(saving.dbd.decode, data)
+	if ok then
+		applyImport(res, name:match('[^/\\]+$') or name)
+	else
+		menuStatusOk = false
+		menuStatus = 'Import failed: ' .. tostring(res)
+	end
 end
 
 function love.draw()
@@ -427,7 +502,45 @@ function love.draw()
 		
 		elseif menuDialogTab == 1 then
 			love.graphics.print('Export', 116, 86, 0, 1.5, 1.5)
+			love.graphics.print('Import', 600, 86, 0, 1.5, 1.5)
 			love.graphics.setFont(fonts.main)
+			
+			love.graphics.setColor(0,0,0,0.25)
+			love.graphics.setLineWidth(2)
+			love.graphics.line(580, 100, 580, 500)
+			love.graphics.setColor(0,0,0,1)
+			
+			love.graphics.print('Format', 116, 168)
+			for i, f in ipairs({'svg', 'dbd', 'png'}) do
+				ui.button(250 + (i - 1) * 76, 150, exportFormat == f and {0.6, 0.85, 1, 1}, sprites.icons[f], nil, function() exportFormat = f end)
+			end
+			love.graphics.setColor(0,0,0,1)
+			love.graphics.print('Name', 116, 242)
+			exportName = ui.textBox(exportName, 206, 236, 250, 34, '[%w_%- ]')
+			ui.button(466, 220, nil, sprites.icons.export, nil, doExport)
+			love.graphics.setColor(0,0,0,1)
+			
+			local inSession = net.isActive()
+			love.graphics.print('Name', 600, 168)
+			ui.canInput = not inSession
+			importName = ui.textBox(importName, 700, 162, 250, 34, '[%w_%- ]')
+			love.graphics.setColor(0,0,0,1)
+			ui.button(960, 150, nil, sprites.icons.import, nil, doImport)
+			ui.canInput = true
+			love.graphics.setColor(0,0,0,1)
+			love.graphics.print('Only .dbd files. \nEverything will be \nreplaced.', 600, 244)
+			if inSession then
+				love.graphics.printf('Leave your multiplayer session to import.', 600, 320, 440, 'left')
+			end
+			
+			if menuStatus ~= '' then
+				if menuStatusOk then
+					love.graphics.setColor(0,0.45,0,1)
+				else
+					love.graphics.setColor(0.75,0,0,1)
+				end
+				love.graphics.printf(menuStatus, 116, 520, 960, 'left')
+			end
 		end
 		
 		

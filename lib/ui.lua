@@ -1,6 +1,7 @@
 local ui = {}
 ui.activeSlider = nil
 ui.activeTextBox = nil
+ui.activeDropdown = nil
 ui.pendingText = ""
 ui.pendingBackspaces = 0
 ui.hasMouse = false
@@ -225,6 +226,91 @@ function ui.cleanScrollValues()
 		end
 		v.used = false
 	end
+end
+
+--[[ options = {
+	'string'
+	{icon, 'value'}
+}]]
+function ui.dropDown(x, y, w, options, selected)
+	local id = x .. ',' .. y
+	local rowH, pad = 40, 8
+	local font = g.getFont()
+	local open = ui.activeDropdown == id
+	local newSelect = selected
+	
+	local function parse(o)
+		if type(o) == 'table' then return o[1], o[2] end
+		return nil, o
+	end
+	
+	local function drawRow(opt, rx, ry, bg)
+		local icon, label = parse(opt)
+		g.setColor(bg)
+		g.rectangle('fill', rx, ry, w, rowH)
+		g.setColor(0, 0, 0, 1)
+		local tx = rx + pad
+		if icon then
+			local s = (rowH - pad) / icon:getHeight()
+			g.setColor(1, 1, 1, 1)
+			g.draw(icon, tx, ry + pad / 2, 0, s, s)
+			tx = tx + icon:getWidth() * s + pad
+			g.setColor(0, 0, 0, 1)
+		end
+		g.print(label, tx, ry + (rowH - font:getHeight()) / 2)
+	end
+
+	local headHover = helpers.isInBox(mouse.x, mouse.y, x, y, w, rowH)
+	local listHover = open and helpers.isInBox(mouse.x, mouse.y, x, y + rowH, w, #options * rowH)
+	if headHover or listHover then ui.hasMouse = true end
+	
+	-- input
+	if mouse.pressed and ui.canInput then
+		if headHover then
+			ui.activeDropdown = (not open) and id or nil
+			helpers.play(sounds.press, math.random(10,20)/30)
+		elseif listHover then
+			local i = math.floor((mouse.y - (y + rowH)) / rowH) + 1
+			if options[i] then newSelect = i end
+			ui.activeDropdown = nil
+			helpers.play(sounds.click, math.random(10,20)/30)
+		elseif open then
+			ui.activeDropdown = nil -- clicked elsewhere
+			helpers.play(sounds.release, math.random(10,20)/30)
+		end
+		open = ui.activeDropdown == id
+	end
+	
+	-- header
+	local bg = ui.canInput and {1,1,1,1} or {.7,.7,.7,1}
+	drawRow(options[newSelect] or '', x, y, bg)
+	g.setColor(0, 0, 0, 1)
+	g.setLineWidth(open and 4 or 2)
+	g.rectangle('line', x, y, w, rowH)
+	-- arrow
+	local ax, ay = x + w - 24, y + rowH / 2
+	if open then
+		g.polygon('fill', ax, ay + 4, ax + 12, ay + 4, ax + 6, ay - 4)
+	else
+		g.polygon('fill', ax, ay - 4, ax + 12, ay - 4, ax + 6, ay + 4)
+	end
+	
+	-- list
+	if open then
+		for i, opt in ipairs(options) do
+			local ry = y + i * rowH
+			local hov = helpers.isInBox(mouse.x, mouse.y, x, ry, w, rowH)
+			local rowBg = hov and {.85,.85,.85,1}
+				or (i == newSelect and {.93,.93,1,1})
+				or {1,1,1,1}
+			drawRow(opt, x, ry, rowBg)
+		end
+		g.setColor(0, 0, 0, 1)
+		g.setLineWidth(2)
+		g.rectangle('line', x, y + rowH, w, #options * rowH)
+	end
+	
+	return newSelect
 end
 
 return ui
